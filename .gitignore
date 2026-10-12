@@ -1,3 +1,4 @@
 outputs/
+tmp/
 *.part
 .DS_Store
