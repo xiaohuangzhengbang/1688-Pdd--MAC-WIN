@@ -4,11 +4,12 @@ import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 
 const sourcePath = resolve(process.argv[2] || '');
-if (!process.argv[2]) throw new Error('Usage: node work/download-assets.mjs outputs/<offerId>/source.json');
+if (!process.argv[2]) throw new Error('Usage: node work/download-assets.mjs <source.json> [output-root]');
 const source = JSON.parse(await readFile(sourcePath, 'utf8'));
 const offerId = new URL(source.url).pathname.match(/\/offer\/(\d+)\.html/)?.[1];
 if (!offerId) throw new Error('Invalid product source URL');
-const base = resolve(dirname(fileURLToPath(import.meta.url)), '../outputs', offerId);
+const outputRoot = process.argv[3] ? resolve(process.argv[3]) : resolve(dirname(fileURLToPath(import.meta.url)), '../outputs');
+const base = resolve(outputRoot, offerId);
 await mkdir(base, {recursive: true});
 const manifestPath = join(base, 'assets-manifest.json');
 let previous = [];

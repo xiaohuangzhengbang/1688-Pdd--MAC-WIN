@@ -1,8 +1,26 @@
 # 1688 商品素材便携工具
 
-复用 TK 总控已实测的提取器和 Node 下载器。适用于 Apple Silicon（M 系列）Mac，不需要 Rosetta 或 npm 依赖。
+复用 TK 总控已实测的提取器和 Node 下载器。v1.1.0 补齐原来的 Codex 自动读取浏览器入口，适用于 Apple Silicon（M 系列）Mac。
 
-## Mac 使用
+## 推荐：恢复“给 Codex 商品链接就提取”的原流程
+
+1. 安装 Codex、Chrome 144+ 和 Node.js macOS ARM64（22.12 或更新版本），确保终端里 `node`、`npx`、`codex` 可用。Codex CLI 安装见 https://developers.openai.com/codex/cli 。
+2. 解压到一个固定目录，在终端进入本包目录，运行 `bash install-codex-mac.sh`。脚本将本包 `.mcp.json` 的 npx 和 Node PATH 适配为这台Mac的实际安装路径，再用官方CLI添加本包 marketplace 并安装 `1688-fast-assets` 插件，不覆盖其他Codex配置。需保持目录以便更新。
+3. 重启 Codex。Chrome 登录1688，在 `chrome://inspect/#remote-debugging` 启用远程调试；连接提示出现时点 Allow。如果 Chrome 中没有该选项，先核对 Chrome 版本和原插件说明，不改用新的未登录浏览器。
+4. 在 Codex 中选择“1688 快速素材采集”插件，发送：
+
+```text
+用 1688 快速素材采集提取这个商品的图库、详情图、视频和描述，下载校验并打包：
+https://detail.1688.com/offer/802358929157.html
+```
+
+插件组合：Chrome DevTools MCP → 固定提取器 → 保存source.json → 中文描述整理 → 原并发下载器 → ZIP。平时由 Codex 完成，不需要你手动复制页面脚本或JSON。
+
+浏览器连接复用原工具的 `--autoConnect` 模式，Mac命令是 `npx`，不使用Windows的 `npx.cmd`。MCP依赖固定为 `chrome-devtools-mcp@1.10.1`，首次启动会由npx下载运行，后续使用缓存；需要网络。不包含1688官方采购助手或Codex Chrome Bridge浏览器扩展，也不需要它们来完成这条DevTools流程。
+
+说明：v1.0.0是手动脚本版；应使用v1.1.0完成原流程迁移。当前验证了配置/脚本及历史真实素材缓存链，Mac安装、Chrome授权和全链路尚需在目标Mac上验证。两秒左右仅为历史下载阶段，不是全流程承诺。
+
+## 手动备用入口
 
 1. 安装官方 Node.js 的 macOS ARM64 版本（建议 22 或更新的 LTS），终端执行 `node -v` 确认可用。
 2. 用 Chrome 登录 1688，打开目标商品页，滚动到商品详情等待图片加载。如需视频，先点开对应视频。

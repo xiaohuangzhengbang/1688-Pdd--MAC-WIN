@@ -1,4 +1,3 @@
 outputs/
-*.json
 *.part
 .DS_Store

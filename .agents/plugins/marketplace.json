@@ -1,0 +1,10 @@
+{
+  "name": "1688-mac-portable",
+  "interface": { "displayName": "TK 1688 便携工具" },
+  "plugins": [{
+    "name": "1688-fast-assets",
+    "source": { "source": "local", "path": "./" },
+    "policy": { "installation": "AVAILABLE", "authentication": "ON_USE" },
+    "category": "Productivity"
+  }]
+}

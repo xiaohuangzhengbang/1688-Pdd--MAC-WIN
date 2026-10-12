@@ -1,0 +1,18 @@
+---
+name: 1688-fast-assets
+description: Extract and download gallery images, detail images, visible text and direct MP4 videos from a user-provided 1688 product link using the existing signed-in Chrome session; deliver a source manifest and ZIP.
+---
+
+Use the packaged extractor and downloader. The historical 802358929157 run downloaded 69 gallery images, 20 detail images and one MP4 in 2.368 seconds for the download stage; do not promise that time for browser loading, model turns, first-time MCP setup, or total delivery.
+
+The plugin root is two directories above this SKILL.md. Resolve its absolute path from the actual skill location. Packaged scripts may be in the plugin cache. Use the task workspace's outputs directory for results, not the cache directory. If no task workspace is available, use the downloaded package's outputs directory after confirming that path from context.
+
+1. Use chrome-devtools list_pages. Select the matching offer page, or open the user's URL in a new tab of that same existing Chrome session. Read a compact snapshot to check product loading. Follow the exposed tool schemas: some versions require select_page first; some accept pageId. Do not guess tool arguments.
+2. If connection is missing, retry once. Explain the required Chrome remote-debugging setup and Allow dialog. Stop on a pending permission, expired login, CAPTCHA or platform block. Keep the existing profile. Do not launch a separate recovery browser or bypass verification.
+3. Read the full function from work/extract-1688-assets.js under the plugin root, and pass it to evaluate_script. It scopes gallery images and traverses detail Shadow DOM. Reuse it instead of rediscovering selectors. If detail/video warnings appear, inspect the relevant detail loading or visible video control once and recapture. Video absence is not proof that the product has no video. Do not claim every alternative video was collected.
+4. Parse the returned JSON, verify the offerId matches the requested URL, and save it as <workspace>/outputs/<offerId>/source.json using file tools. Keep strings and long IDs intact. Do not expose login storage or unrelated browser state. Do not use the browser tool's filePath outside its permitted roots.
+5. Create 商品描述.md in the same output folder from the actual text: product type, material/specs, seller, SKU-specific prices/MOQ and unknowns. Label translated summaries as translations, preserve the original page text, and do not invent missing values. Lowest accessory price is not automatically the main item's price. Chinese descriptions are model-generated from evidence, not an automatic downloader/OCR feature.
+6. On Mac, run bash "<plugin-root>/download-mac.sh" "<workspace>/outputs/<offerId>/source.json" "<workspace>/outputs". It downloads with the existing 4-worker, retry and SHA256-cache implementation, then packages the folder. Use Node 22.12+ from PATH. First MCP use may fetch its pinned npm runtime; do not describe that cold start as a two-second action.
+7. Read assets-manifest.json and confirm exit status. Report actual counts, warnings, failures and download elapsedMs separately from total task time. If failure occurred, do not hand off a stale ZIP as the new result. Return clickable absolute links for the ZIP, video and description.
+
+This workflow reads user-selected products and saves local files. It does not authorize cart changes, purchases, seller messages or account changes. Direct MP4 only; no HLS/blob/DRM conversion. Header validation does not prove full decoding.
