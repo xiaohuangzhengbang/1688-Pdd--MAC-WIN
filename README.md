@@ -1,6 +1,12 @@
 # 1688 商品素材便携工具
 
-复用 TK 总控已实测的提取器和 Node 下载器。v1.1.0 补齐原来的 Codex 自动读取浏览器入口，适用于 Apple Silicon（M 系列）Mac。
+复用 TK 总控已实测的提取器和 Node 下载器。v1.1.0 补齐Chrome DevTools自动入口；v1.1.1补齐OpenCLI交接与本机核查，适用于 Apple Silicon（M 系列）Mac。
+
+## 已有OpenCLI插件：先读这份交接
+
+用户另一台电脑已有OpenCLI入口。请先阅读 [OPENCLI-HANDOFF.md](OPENCLI-HANDOFF.md)，再运行 `bash check-opencli-mac.sh` 检查本机程序与命令目录。该检查不访问商品页，也不验证扩展连接。
+
+本包的Chrome DevTools入口与OpenCLI是两种独立连接方式。项目尚未将OpenCLI接入统一manifest、中文描述和ZIP交付；不要把“交接已上传”写成“OpenCLI全流程已打通”。已发生的站点安全拦截不能靠换用OpenCLI解除。
 
 ## 推荐：恢复“给 Codex 商品链接就提取”的原流程
 

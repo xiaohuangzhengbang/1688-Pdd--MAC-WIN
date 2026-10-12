@@ -1,6 +1,6 @@
 {
   "name": "1688-fast-assets",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Reuse the verified TK 1688 product image, detail, text and MP4 extraction workflow with the user's existing Chrome session.",
   "author": { "name": "xiaohuangzhengbang" },
   "repository": "https://github.com/xiaohuangzhengbang/1688-mac-portable",
