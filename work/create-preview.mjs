@@ -3,6 +3,7 @@ import { lstat, open, realpath } from 'node:fs/promises';
 import { basename, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { productSourceFromUrl } from './product-identity.mjs';
 
 export const DEFAULT_OUTPUT_NAME = '图文预览.html';
 const groups = ['mainImages', 'detailImages', 'videos'];
@@ -50,14 +51,6 @@ for (const button of document.querySelectorAll('[data-image]')) {
   });
 }
 `;
-
-function offerIdFromUrl(value) {
-  let url;
-  try { url = new URL(value); } catch { throw new Error('Invalid product source URL'); }
-  const id = url.pathname.match(/^\/offer\/(\d{1,30})\.html$/)?.[1];
-  if (!id || url.protocol !== 'https:' || url.hostname !== 'detail.1688.com' || url.port || url.username || url.password) throw new Error('Invalid product source URL');
-  return id;
-}
 
 async function outputRoot(directory) {
   if (!noFollowAny) throw new Error('Secure preview generation and serving currently require macOS; Windows/Linux preview is unsupported');
@@ -127,11 +120,15 @@ function safeMediaPath(row) {
 }
 
 function cleanDescription(markdown, canonicalUrl) {
+  const product = productSourceFromUrl(canonicalUrl);
   const unrelated = /^(?:我的1688|1688采购助手|官方插件.*|账号(?:余额|信息|设置).*|账户(?:余额|信息|设置).*|会员中心|我的订单|采购车|立即下单|加采购车|跨境铺货|收藏|客服|APP|复制链接|顶部|反馈|采集此商品|清除缓存|停用插件|切换为侧边栏模式)$/i;
   const lines = markdown.replace(/\r\n?/g, '\n').split('\n').map(line => {
     let text = line.trim().replace(/^#{1,6}\s+/, '').replace(/\*\*([^]*?)\*\*/g, '$1').replace(/__([^]*?)__/g, '$1');
     text = text.replace(/\[([^\]]+)\]\(([^)]*)\)/g, (_, label, url) => {
-      try { return offerIdFromUrl(url) === offerIdFromUrl(canonicalUrl) ? `${label}：${canonicalUrl}` : label; }
+      try {
+        const linked = productSourceFromUrl(url);
+        return linked.id === product.id && linked.site === product.site ? `${label}：${canonicalUrl}` : label;
+      }
       catch { return label; }
     });
     if (unrelated.test(text) || /^\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?$/.test(text)) return null;
@@ -162,10 +159,19 @@ export async function loadProduct(directory) {
   const root = await outputRoot(directory);
   const source = JSON.parse((await readContained(root, 'source.json')).toString('utf8'));
   const manifest = JSON.parse((await readContained(root, 'assets-manifest.json')).toString('utf8'));
-  const offerId = offerIdFromUrl(source?.url);
-  if ((source.offerId != null && String(source.offerId) !== offerId) || String(manifest?.offerId) !== offerId || (manifest.sourceUrl != null && offerIdFromUrl(manifest.sourceUrl) !== offerId)) throw new Error('Source and manifest offer ID mismatch');
+  const identity = productSourceFromUrl(source?.url);
+  const { id: offerId, site, canonicalUrl, outputName } = identity;
+  if ((source.offerId != null && String(source.offerId) !== offerId)
+      || (source.platform != null && source.platform !== site)
+      || (site === 'pdd' && String(source.goodsId) !== offerId)
+      || String(manifest?.offerId) !== offerId
+      || (manifest.platform != null && manifest.platform !== site)
+      || (site === 'pdd' && manifest.goodsId != null && String(manifest.goodsId) !== offerId)) throw new Error('Source and manifest offer ID mismatch');
+  if (manifest.sourceUrl != null || site === 'pdd') {
+    const manifestSource = productSourceFromUrl(manifest.sourceUrl);
+    if (manifestSource.id !== offerId || manifestSource.site !== site) throw new Error('Source and manifest offer ID mismatch');
+  }
   if (!Array.isArray(manifest.assets)) throw new Error('Manifest assets must be an array');
-  const canonicalUrl = `https://detail.1688.com/offer/${offerId}.html`;
   const warnings = [];
   let markdown = '';
   try { markdown = (await readContained(root, '商品描述.md')).toString('utf8'); }
@@ -203,7 +209,7 @@ export async function loadProduct(directory) {
   }
   if (!counts.mainImages && !counts.detailImages) warnings.push('未采集到可用商品图片');
   if (!counts.videos) warnings.push('未采集到可用 MP4 视频');
-  return { root, offerId, canonicalUrl, title, description, media, counts, warnings: [...new Set(warnings)] };
+  return { root, offerId, ...(site === 'pdd' ? { goodsId: offerId } : {}), site, outputName, canonicalUrl, title, description, media, counts, warnings: [...new Set(warnings)] };
 }
 
 export function renderPreview(product) {

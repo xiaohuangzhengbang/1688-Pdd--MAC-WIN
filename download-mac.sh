@@ -26,26 +26,23 @@ done
 source_path="$(node -e 'process.stdout.write(require("path").resolve(process.argv[1]));' "$1")"
 output_root="$(node -e 'process.stdout.write(require("path").resolve(process.argv[1]));' "$output_argument")"
 cd "$package_dir"
-offer_id="$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const u=new URL(d.url); const m=u.pathname.match(/^\/offer\/(\d+)\.html$/); if(u.hostname!=="detail.1688.com"||!m) throw Error("Invalid offer URL"); process.stdout.write(m[1]);' "$source_path")"
-mkdir -p "$output_root/$offer_id"
-if [ "$source_path" -ef "$output_root/$offer_id/source.json" ]; then
-  :
-else
-  cp "$source_path" "$output_root/$offer_id/source.json"
-fi
+output_name="$(node --input-type=module -e 'import fs from "node:fs"; import {productSourceFromUrl} from "./work/product-identity.mjs"; const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(productSourceFromUrl(d.url).outputName);' "$source_path")"
 download_status=0
-node work/download-assets.mjs "$output_root/$offer_id/source.json" "$output_root" || download_status=$?
-node work/create-preview.mjs "$output_root/$offer_id"
+node work/prepare-materials.mjs "$source_path" "$output_root" || download_status=$?
 if [ "$download_status" -ne 0 ]; then
-  echo "Preview: $output_root/$offer_id/图文预览.html" >&2
+  echo "Preview: $output_root/$output_name/图文预览.html" >&2
   exit "$download_status"
 fi
 if [ "$zip_requested" != true ]; then
-  echo "Preview: $output_root/$offer_id/图文预览.html"
+  echo "Preview: $output_root/$output_name/图文预览.html"
   exit 0
 fi
-archive="$output_root/1688_${offer_id}_assets.zip"
-temporary_archive="$output_root/1688_${offer_id}_assets.$$.zip"
-(cd "$output_root/$offer_id" && /usr/bin/zip -qr "$temporary_archive" .)
+case "$output_name" in
+  pdd-*) archive_name="pdd_${output_name#pdd-}_assets" ;;
+  *) archive_name="1688_${output_name}_assets" ;;
+esac
+archive="$output_root/$archive_name.zip"
+temporary_archive="$output_root/$archive_name.$$.zip"
+(cd "$output_root/$output_name" && /usr/bin/zip -qr "$temporary_archive" .)
 mv "$temporary_archive" "$archive"
 echo "Saved: $archive"

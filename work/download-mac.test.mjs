@@ -8,13 +8,13 @@ import {spawnSync} from 'node:child_process';
 
 const packageRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const offerId = '1075593934641';
-async function fixture(t, videos = []) {
+async function fixture(t, videos = [], site = '1688') {
   const root = await mkdtemp(join(tmpdir(), '1688-download-cli-'));
   t.after(() => rm(root, {recursive: true, force: true}));
   const source = join(root, 'source.json');
-  const product = join(root, 'outputs', offerId);
+  const product = join(root, 'outputs', site === 'pdd' ? 'pdd-' + offerId : offerId);
   await mkdir(product, {recursive: true});
-  await writeFile(source, JSON.stringify({offerId, url: `https://detail.1688.com/offer/${offerId}.html`, mainImages: [], detailImages: [], videos: [], ...{videos}}));
+  await writeFile(source, JSON.stringify({offerId, ...(site === 'pdd' ? {platform:'pdd',goodsId:offerId} : {}), url: site === 'pdd' ? `https://mobile.yangkeduo.com/goods.html?goods_id=${offerId}` : `https://detail.1688.com/offer/${offerId}.html`, mainImages: [], detailImages: [], videos}));
   await writeFile(join(product, '商品描述.md'), '# 测试商品\n页面规格尚未加载。');
   return {root, source, product};
 }
@@ -42,4 +42,13 @@ test('explicit default output directory does not allow a second directory', asyn
   const result = run([source, join(packageRoot, 'outputs'), join(root, 'another')]);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Only one output directory/);
+});
+
+test('the same Mac entry prepares a real PDD identity in its platform directory', async t => {
+  const {root, source, product} = await fixture(t, [], 'pdd');
+  const result = run([source, join(root, 'outputs')]);
+  assert.equal(result.status, 0, result.stderr);
+  const html = await readFile(join(product, '图文预览.html'), 'utf8');
+  assert.match(html, new RegExp('mobile\\.yangkeduo\\.com/goods\\.html\\?goods_id=' + offerId));
+  assert.doesNotMatch(html, /detail\.1688\.com\/offer/);
 });

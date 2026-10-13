@@ -18,12 +18,13 @@ export function isPublicIPv4(address) {
     (a === 203 && b === 0 && c === 113));
 }
 
-export function approveAssetUrl(value) {
+export function approveAssetUrl(value, {allowProductReferer = false} = {}) {
   let url;
   if (/[\u0000-\u0020\u007f]/.test(String(value))) throw new Error('Unapproved asset URL');
   try { url = new URL(value); } catch { throw new Error('Unapproved asset URL'); }
   if (url.protocol !== 'https:' || url.username || url.password || url.port ||
-    !/(^|\.)(alicdn\.com|taobao\.com|1688\.com)$/.test(url.hostname)) throw new Error('Unapproved asset URL');
+    !(/(^|\.)(alicdn\.com|taobao\.com|1688\.com|pddpic\.com)$/.test(url.hostname) ||
+      (allowProductReferer && url.hostname === 'mobile.yangkeduo.com'))) throw new Error('Unapproved asset URL');
   return String(value);
 }
 
@@ -90,7 +91,7 @@ export async function downloadDomesticVideo(value, {
 } = {}) {
   let url = approveAssetUrl(value);
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 60000) throw new Error('Invalid domestic download timeout');
-  if (referer) approveAssetUrl(referer);
+  if (referer) approveAssetUrl(referer, {allowProductReferer: true});
   const deadline = Date.now() + timeoutMs;
   const interfaceName = await discoverDirectInterface({env, platform, runCommand: run});
   for (let redirects = 0; ; redirects++) {

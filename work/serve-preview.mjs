@@ -73,7 +73,7 @@ export async function startServer(directory, { port = 0, outputName = DEFAULT_OU
   });
   const actualPort = server.address().port;
   expectedHost = `127.0.0.1:${actualPort}`;
-  return { server, url: `http://${expectedHost}/`, offerId, previewPath, warnings };
+  return { server, url: `http://${expectedHost}/`, offerId, previewPath, warnings, counts: product.counts };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

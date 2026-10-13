@@ -3,17 +3,25 @@ import {resolve, dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import {approveAssetUrl, downloadDomesticVideo, useDomesticTransport} from './domestic-download.mjs';
+import {productSourceFromUrl} from './product-identity.mjs';
 
 export async function downloadAssets(inputPath, outputDirectory, {
-  platform = process.platform, env = process.env, fetch: fetchAsset = globalThis.fetch, domesticDownload = downloadDomesticVideo,
+  platform = process.platform, env = process.env, fetch: fetchAsset = globalThis.fetch, domesticDownload = downloadDomesticVideo, concurrency,
 } = {}) {
   if (!inputPath) throw new Error('Usage: node work/download-assets.mjs <source.json> [output-root]');
   const sourcePath = resolve(inputPath);
   const source = JSON.parse(await readFile(sourcePath, 'utf8'));
-  const offerId = new URL(source.url).pathname.match(/\/offer\/(\d+)\.html/)?.[1];
-  if (!offerId) throw new Error('Invalid product source URL');
+  const product = productSourceFromUrl(source.url);
+  const offerId = product.id;
+  if ((source.platform !== undefined && source.platform !== product.site) ||
+    (source.offerId !== undefined && source.offerId !== offerId) ||
+    (product.site === 'pdd' && source.goodsId !== offerId)) throw new Error('Invalid product source URL');
+  const environmentLimit = env.ASSET_DOWNLOAD_CONCURRENCY;
+  const workers = concurrency !== undefined ? concurrency : environmentLimit === undefined ? 4 :
+    /^(?:[1-9]|1[0-2])$/.test(environmentLimit) ? Number(environmentLimit) : NaN;
+  if (!Number.isInteger(workers) || workers < 1 || workers > 12) throw new Error('Invalid download concurrency; choose an integer from 1 to 12');
   const outputRoot = outputDirectory ? resolve(outputDirectory) : resolve(dirname(fileURLToPath(import.meta.url)), '../outputs');
-  const base = resolve(outputRoot, offerId);
+  const base = resolve(outputRoot, product.outputName);
   await mkdir(base, {recursive: true});
   const manifestPath = join(base, 'assets-manifest.json');
   let previous = [];
@@ -24,12 +32,13 @@ export async function downloadAssets(inputPath, outputDirectory, {
     return bytes.length > 32 && (bytes.subarray(0, 3).equals(Buffer.from([255,216,255])) || bytes.toString('ascii', 1, 4) === 'PNG' || bytes.toString('ascii', 0, 3) === 'GIF' || (bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP'));
   };
   const jobs = ['mainImages', 'detailImages', 'videos'].flatMap(group => [...new Set(source[group] || [])].map((url, index) => ({group, url, index})));
+  const queue = jobs.map((job, slot) => ({job, slot})).sort((a, b) => Number(b.job.group === 'videos') - Number(a.job.group === 'videos'));
   const results = new Array(jobs.length);
   let cursor = 0;
   const started = Date.now();
-  await Promise.all(Array.from({length: 4}, async () => {
-    while (cursor < jobs.length) {
-      const slot = cursor++, job = jobs[slot];
+  await Promise.all(Array.from({length: Math.min(workers, queue.length)}, async () => {
+    while (cursor < queue.length) {
+      const {slot, job} = queue[cursor++];
       const row = {group: job.group, url: job.url};
       try {
         const url = new URL(approveAssetUrl(job.url));
@@ -75,7 +84,7 @@ export async function downloadAssets(inputPath, outputDirectory, {
     }
   }));
   await writeFile(join(base, '页面原文.txt'), source.text || '', 'utf8');
-  const manifest = {offerId, sourceUrl: source.url, capturedAt: source.capturedAt, completedAt: new Date().toISOString(), elapsedMs: Date.now() - started, warnings: source.warnings || [], assets: results};
+  const manifest = {platform: product.site, ...(product.site === 'pdd' ? {goodsId: offerId} : {}), offerId, sourceUrl: source.url, capturedAt: source.capturedAt, completedAt: new Date().toISOString(), elapsedMs: Date.now() - started, warnings: source.warnings || [], assets: results};
   await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   const summary = {offerId, elapsedMs: manifest.elapsedMs, downloaded: results.filter(r => r.status === 'downloaded').length, cached: results.filter(r => r.status === 'cached').length, failed: results.filter(r => r.status === 'failed').map(({group, file, error}) => ({group, file, error})), manifestPath};
   return {manifest, summary};

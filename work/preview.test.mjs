@@ -243,9 +243,10 @@ test('createPreview writes only the chosen HTML artifact and refuses an output s
 
 test('localhost server exposes only generated preview and allowed media with correct MIME and HEAD', async t => {
   const { root } = await fixture(t);
-  const { server, url, offerId: id } = await running(t, root);
+  const { server, url, offerId: id, counts } = await running(t, root);
   assert.equal(server.address().address, '127.0.0.1');
   assert.equal(id, offerId);
+  assert.deepEqual(counts, { mainImages: 1, detailImages: 0, videos: 1 });
   assert.match(url, /^http:\/\/127\.0\.0\.1:\d+\/$/);
   const preview = await http(url);
   assert.equal(preview.status, 200);
